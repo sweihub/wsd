@@ -1,0 +1,10 @@
+[package]
+name = "wsd"
+version = "0.0.0"
+edition = "2021"
+description = "Delivers what simply defined."
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
