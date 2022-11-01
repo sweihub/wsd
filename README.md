@@ -3,9 +3,21 @@ wsd is an intuitive crate delivers What Simply Defined.
 
 # Intutive File Class
 
-Just a convenient wrapper to rust File, check the return value quickly as we did with C API, don't need to check the Result, and unwrap() etc.
+Just a convenient wrapper to rust File, check the return value quickly as we did with C API, don't need to check the Result, and unwrap() etc. 
 
-The available file open flags
+## Methods
+```rust
+File::new()
+File::open()
+File::read()
+File::write()
+File::seek()
+File::length()
+File::close()
+File::error()
+```
+
+## Open flags
 ```rust
 O_CREATE
 O_TRUNCATE
@@ -14,6 +26,16 @@ O_READ
 O_WRITE
 O_APPEND
 ```
+
+## Seek flags
+```rust
+SEEK_SET
+SEEK_CUR
+SEEK_END
+```
+
+
+## Example
 
 ```rust
 using wsd::fs::*;
@@ -33,14 +55,20 @@ fn test() -> i32 {
     }
 
     f.rewind();
-    mut buf = [0; 4096];
-    n = f.read(buf);
+    let mut buf = [0; 4096];
+    let n = f.read(&mut buf);
     if n > 0 {
-        // read success        
+        // success to read n bytes
     }
 
     // get file length
     let off = f.length();
+    if off > 0 {
+
+    }
+
+    f.seek(256, SEEK_SET);
+    f.write("more data");
 
     f.close();
 
@@ -48,3 +76,4 @@ fn test() -> i32 {
 } 
 
 ```
+
