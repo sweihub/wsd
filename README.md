@@ -1,5 +1,7 @@
 wsd is an intuitive crate delivers What Simply Defined.
 
+### Documents
+https://docs.rs/wsd
 
 # Intutive File Class
 
@@ -11,10 +13,13 @@ File::new()
 File::open()
 File::read()
 File::write()
-File::seek()
-File::length()
 File::close()
 File::error()
+File::path()
+File::seek()
+File::position()
+File::length()
+File::is_none()
 ```
 
 ## Open flags
@@ -25,6 +30,7 @@ O_RW
 O_READ
 O_WRITE
 O_APPEND
+O_NONBLOCK
 ```
 
 ## Seek flags

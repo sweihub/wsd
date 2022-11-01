@@ -165,7 +165,7 @@ mod tests {
         let mut buf = [0; 32];
         n = f.read(&mut buf);
         assert!(n as usize == data2.len());
-
+        
         // content must be correct
         assert!(data2.as_bytes() == &buf[0 .. n as usize]);
 
