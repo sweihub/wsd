@@ -1,4 +1,5 @@
 pub mod fs;
+pub mod http;
 
 #[cfg(test)]
 mod tests {
