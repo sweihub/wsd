@@ -1,10 +1,11 @@
 pub mod fs;
 pub mod http;
+pub use native_json::json;
 
 #[cfg(test)]
 mod tests {
 
-    use crate::fs::*;    
+    use crate::fs::*;
 
     #[test]
     fn test_open_failed() {
@@ -134,18 +135,18 @@ mod tests {
         let mut n = f.open(path, O_CREATE | O_WRITE);
         assert!(n == 0);
 
-        let data = vec![0,1,2,3,4,5,6,7,8,9];
+        let data = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         n = f.write(&data);
         assert!(n == data.len() as i32);
 
         f.close();
-        remove(path);        
+        remove(path);
     }
 
     #[test]
     fn test_seek_and_read() {
         let path = "test_seek_and_read.txt";
-        
+
         let mut f = File::new();
         let mut n = f.open(path, O_CREATE | O_RW);
         assert!(n == 0);
@@ -156,7 +157,7 @@ mod tests {
         f.write(data2);
         n = f.rewind();
         assert!(n == 0);
-        
+
         let mut off = f.length();
         assert!(off as usize == data1.len() + data2.len());
 
@@ -166,9 +167,9 @@ mod tests {
         let mut buf = [0; 32];
         n = f.read(&mut buf);
         assert!(n as usize == data2.len());
-        
+
         // content must be correct
-        assert!(data2.as_bytes() == &buf[0 .. n as usize]);
+        assert!(data2.as_bytes() == &buf[0..n as usize]);
 
         f.close();
         remove(path);

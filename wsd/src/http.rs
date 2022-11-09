@@ -1,5 +1,5 @@
 //! Provides most simple ways to make http request, simple as what JavaScript dose!
-use reqwest::blocking::{Client, Response, Body, RequestBuilder};
+use reqwest::blocking::{Body, Client, RequestBuilder, Response};
 use reqwest::header::HeaderMap;
 use std::collections::HashMap;
 use std::fmt;
@@ -8,11 +8,10 @@ use std::time::Duration;
 
 pub use reqwest::Method;
 
-
 #[allow(rustdoc::bare_urls)]
 
 /// Most simple way to make http request, using keep-alive connection pooling.
-///```rust 
+///```rust
 /// use wsd::http::*;
 //
 /// fn test() {
@@ -33,24 +32,23 @@ pub struct Request {
     headers: HashMap<String, String>,
     error: String,
     timeout: i32,
-    gzip: bool
+    gzip: bool,
 }
 
 pub struct Data {
     status: u16,
     data: String,
-    headers: HashMap<String, String>
+    headers: HashMap<String, String>,
 }
 
-fn get_headers(input : &HeaderMap) -> HashMap<String, String> 
-{
-    let mut headers :HashMap<String, String> = HashMap::new();
+fn get_headers(input: &HeaderMap) -> HashMap<String, String> {
+    let mut headers: HashMap<String, String> = HashMap::new();
     for (key, value) in input {
         let k = String::from(key.as_str());
         let v = String::from(value.to_str().unwrap_or(""));
         headers.insert(k, v);
     }
-       
+
     return headers;
 }
 
@@ -73,7 +71,7 @@ impl Request {
             headers: HashMap::new(),
             error: "".into(),
             timeout: 10,
-            gzip: false
+            gzip: false,
         };
     }
 
@@ -103,10 +101,9 @@ impl Request {
         }
         return x;
     }
-    
+
     /// Send the request
-    pub fn send<DATA: Into<Body>, F: FnMut(Data)>(&mut self, data: DATA, mut f: F) -> i32 
-    {
+    pub fn send<DATA: Into<Body>, F: FnMut(Data)>(&mut self, data: DATA, mut f: F) -> i32 {
         // build client once
         if self.inner.is_none() {
             let c = Client::builder()
@@ -121,7 +118,7 @@ impl Request {
                     self.error = e.to_string();
                     return -1;
                 }
-            }            
+            }
         }
 
         // build request
@@ -133,26 +130,26 @@ impl Request {
         if let Err(e) = ret {
             self.error = e.to_string();
             return -1;
-        }        
+        }
 
         let response = ret.unwrap();
         let status = response.status().as_u16();
-        let headers = get_headers(response.headers());        
+        let headers = get_headers(response.headers());
 
         // moved occured inside of the text()
-        let t = response.text();        
+        let t = response.text();
         if let Err(e) = t {
             self.error = e.to_string();
             return -1;
-        }        
+        }
 
         let upcall = Data {
             status: status,
             data: t.unwrap(),
-            headers: headers
+            headers: headers,
         };
 
-        f(upcall);   
+        f(upcall);
 
         return 0;
     }
@@ -193,7 +190,7 @@ impl Data {
 pub fn get<URL, F>(url: URL, mut f: F)
 where
     URL: AsRef<str>,
-    F: FnMut(Data)
+    F: FnMut(Data),
 {
     let g = || -> Result<Response, Box<dyn std::error::Error>> {
         let client = Client::builder().gzip(true).build()?;
@@ -205,7 +202,7 @@ where
     let mut data = Data {
         status: 522,
         data: "".to_string(),
-        headers: HashMap::new()
+        headers: HashMap::new(),
     };
 
     if let Ok(response) = g() {
@@ -231,7 +228,7 @@ pub fn post<URL, BODY, F>(url: URL, body: BODY, mut f: F)
 where
     URL: AsRef<str>,
     BODY: Into<Body> + AsRef<[u8]>,
-    F: FnMut(Data)
+    F: FnMut(Data),
 {
     let g = |x: BODY| -> Result<Response, Box<dyn std::error::Error>> {
         // enable zip if data reaches MTU (1300 - 1500)
@@ -245,7 +242,7 @@ where
     let mut data = Data {
         status: 522,
         data: "".to_string(),
-        headers: HashMap::new()
+        headers: HashMap::new(),
     };
 
     if let Ok(response) = g(body) {

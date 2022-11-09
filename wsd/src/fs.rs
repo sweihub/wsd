@@ -1,7 +1,7 @@
 //!The intuitive file system module
-//! 
+//!
 //! Demo of the intuitive File, call methods like C API convention, check the returned integer for status, 0 means success, negative value means error.
-//! 
+//!
 //! ```rust,no_run
 //!use wsd::fs::*;
 //!
@@ -38,24 +38,24 @@
 //!    f.close();
 //!
 //!    return 0;
-//!} 
+//!}
 //!
 //!```
 use std::io::prelude::*;
 use std::path::Path;
 
 /// Create and open the file
-pub const O_CREATE: u32   = 1 << 1;
+pub const O_CREATE: u32 = 1 << 1;
 /// Append only
-pub const O_APPEND: u32   = 1 << 2;
+pub const O_APPEND: u32 = 1 << 2;
 /// Non blocking to [`File::write`]
 pub const O_NONBLOCK: u32 = 1 << 3;
 /// Read only
-pub const O_READ: u32     = 1 << 4;
+pub const O_READ: u32 = 1 << 4;
 /// Write only
-pub const O_WRITE: u32    = 1 << 5;
+pub const O_WRITE: u32 = 1 << 5;
 /// Read and write
-pub const O_RW: u32       = O_READ | O_WRITE;
+pub const O_RW: u32 = O_READ | O_WRITE;
 /// Causes the file to be truncated if it exists
 pub const O_TRUNCATE: u32 = 1 << 6;
 
@@ -105,8 +105,7 @@ impl File {
     }
 
     /// Open a file with given flags
-    pub fn open<T: AsRef<str>>(&mut self, path: T, flags: u32) -> int 
-    {
+    pub fn open<T: AsRef<str>>(&mut self, path: T, flags: u32) -> int {
         let mut options = std::fs::File::options();
 
         self.pod = None;
@@ -153,8 +152,7 @@ impl File {
     }
 
     /// Write all data unless [`O_NONBLOCK`] flag was set
-    pub fn write<Buffer: AsRef<[u8]>>(&mut self, data: Buffer) -> int 
-    {
+    pub fn write<Buffer: AsRef<[u8]>>(&mut self, data: Buffer) -> int {
         let mut i = 0;
         let buf = data.as_ref();
         let n = buf.len() as i32;
@@ -185,8 +183,7 @@ impl File {
     }
 
     /// Read data into buffer
-    pub fn read(&mut self, buf: &mut [u8]) -> int 
-    {
+    pub fn read(&mut self, buf: &mut [u8]) -> int {
         if self.is_none() {
             return -1;
         }
@@ -208,8 +205,7 @@ impl File {
     }
 
     /// Flush the file
-    pub fn flush(&mut self) -> int 
-    {
+    pub fn flush(&mut self) -> int {
         if self.is_none() {
             return -1;
         }
@@ -225,8 +221,7 @@ impl File {
     /// Seek to a position
     /// * `offset` - relative position
     /// * `whence` - One of: [`SEEK_SET`], [`SEEK_CUR`], [`SEEK_END`]
-    pub fn seek(&mut self, offset: i64, whence: int) -> i64 
-    {
+    pub fn seek(&mut self, offset: i64, whence: int) -> i64 {
         if self.is_none() {
             return -1;
         }
@@ -263,8 +258,7 @@ impl File {
     }
 
     /// Reset the position
-    pub fn rewind(&mut self) -> int 
-    {
+    pub fn rewind(&mut self) -> int {
         if self.seek(0, SEEK_SET) < 0 {
             return -1;
         }
