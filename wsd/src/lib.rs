@@ -1,6 +1,6 @@
 pub mod fs;
 pub mod http;
-pub use native_json::json;
+pub mod json;
 
 #[cfg(test)]
 mod tests {

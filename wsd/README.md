@@ -5,7 +5,49 @@
 * Add dependency to your Cargo.toml
 ```
 [dependencies]
-wsd = "0.0.3"
+wsd = "1.0.0"
+```
+## Native JSON for Rust
+```rust
+use std::collections::HashMap;
+use wsd::json::*;
+
+fn main()
+{
+    let var = 123;
+    let map = HashMap::from([ ("a", 1), ("b", 2), ("c", 3) ]);
+
+    let mut t = json!{
+        name: "native json",
+        style: {
+            color: "red",
+            size: 12,
+            bold: true
+        },
+        class: null,
+        array: [5,4,3,2,1],
+        vector: vec![1,2,3,4,5],
+        hashmap: map,
+        students: [
+            {name: "John", age: 18},
+            {name: "Jack", age: 21},
+        ],
+        rect: {x: 10, y: 10, width: 100, height: 50},
+        sum: var + 10
+    };
+
+    // Native access
+    t.rect.x += 10;
+    t.rect.y += 20;
+
+    // Debug
+    println!("{:#?}", t);
+
+    // Stringify
+    let text = stringify(&t, 4);
+    println!("{}", text);
+
+}
 ```
 
 ## Most simple way to make http request
@@ -119,3 +161,4 @@ SEEK_SET
 SEEK_CUR
 SEEK_END
 ```
+
