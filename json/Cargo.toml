@@ -11,5 +11,5 @@ repository = "https://github.com/sweihub/wsd/tree/main/json"
 proc-macro = true
 
 [dependencies]
-syn = {version="1.0.103",features=["full", "extra-traits"]}
+syn = {version="1.0.103",features=["parsing"]}
 quote = "1.0.21"

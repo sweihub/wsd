@@ -1,6 +1,4 @@
-use std::fmt::format;
-
-use proc_macro::TokenTree;
+use quote::ToTokens;
 use syn::{*, parse::{ParseStream, Parse}};
 
 //------------------- JSON Syntax ------------------------------
@@ -12,13 +10,11 @@ use syn::{*, parse::{ParseStream, Parse}};
 // value =  object | array | expression
 // expression = string | number | identifier
 
-pub const OBJECT: u8 = 1;
-pub const ARRAY: u8 = 2;
-pub const EXPRESSION: u8 = 3;
-
-pub struct Value {
-    pub t: u8,
-    pub i: usize,
+pub enum ValueType {
+    NULL,
+    OBJECT,
+    ARRAY,
+    EXPRESSION,
 }
 
 pub struct Array {
@@ -30,9 +26,9 @@ pub struct Pair {
     pub value: Value
 }
 
-
-pub struct Object {
-    pub id: String,
+pub struct Object {    
+    pub name: String,
+    pub usage: i32,
     pub pairs: Vec<Pair>
 }
 
@@ -44,6 +40,11 @@ pub struct Json {
     expressions: Vec<Expr>,
 }
 
+pub struct Value {
+    pub t: ValueType,
+    pub i: usize,
+}
+
 impl Array {
     pub fn new() -> Self {
         Self {items: Vec::new() }
@@ -52,14 +53,52 @@ impl Array {
 
 impl Object {
     pub fn new() -> Self {
-        Self { id: "".to_string(), pairs: Vec::new() }
+        Self { name: "".to_string(), pairs: Vec::new(), usage: 0 }
     }
+}
+
+fn code_gen(json: &Json, value: &Value, object_type: &String) -> String {
+    let code;
+    let none = "".to_owned();
+    match value.t {
+        ValueType::OBJECT => {
+            let obj = json.get_object(value);
+            let mut fields = Vec::new();
+            for pair in &obj.pairs {
+                let v = code_gen(json, &pair.value, object_type);
+                let f = format!("{}:{}", pair.key.to_string(), v);
+                fields.push(f);
+            }
+            let name = if object_type.is_empty() { &obj.name } else { object_type };
+            code = format!("{} {{ {} }}", name, fields.join(","));
+        },
+        ValueType::ARRAY => {         
+            let array = json.get_array(value);
+            let mut item_type = &none;
+            // use the first item type
+            if array.items.len() > 0 && matches!(array.items[0].t, ValueType::OBJECT) {
+                let obj = json.get_object(&array.items[0]);
+                item_type = &obj.name;
+            }
+            let items:Vec<_> = array.items.iter().map(|x| {
+                let c = code_gen(json, x, &item_type);
+                c
+            }).collect();
+            code = format!("[{}]", items.join(","));
+        },
+        ValueType::EXPRESSION => { 
+            let expr = json.get_expression(value);
+            code = expr.to_token_stream().to_string();
+        },
+        ValueType::NULL => { code = "None".to_owned(); }
+    }
+    return  code;
 }
 
 impl Json {
     pub fn new() -> Self {
         return Self {
-            value: Value { t: 0, i: 0 },
+            value: Value { t: ValueType::NULL, i: 0 },
             id: 0,
             objects: Vec::new(),
             arrays: Vec::new(),
@@ -67,7 +106,7 @@ impl Json {
         };    
     }
 
-    pub fn get_object(&self, v : &Value) -> &Object {        
+    pub fn get_object(&self, v : &Value) -> &Object {
         return &self.objects[v.i];
     }
 
@@ -83,7 +122,7 @@ impl Json {
     {
         self.objects.push(v);
         let i = self.objects.len() - 1;
-        let t = OBJECT;
+        let t = ValueType::OBJECT;
         return Value {t, i};
     }
 
@@ -91,7 +130,7 @@ impl Json {
     {
         self.arrays.push(v);
         let i = self.arrays.len() - 1;
-        let t = ARRAY;
+        let t = ValueType::ARRAY;
         return Value {t, i};
     }
 
@@ -99,7 +138,7 @@ impl Json {
     {
         self.expressions.push(v);
         let i = self.expressions.len() - 1;
-        let t = EXPRESSION;
+        let t = ValueType::EXPRESSION;
         return Value {t, i};
     }
     
@@ -130,10 +169,7 @@ impl Json {
     fn parse_object(&mut self, input: ParseStream) -> Result<Value> 
     {
         let inner;
-        let mut content;
-        let mut types: Vec<String> = Vec::new();
-        let mut fields: Vec<String>;
-        let mut t = 0;
+        let mut content;  
         
         content = input;
         if input.peek(syn::token::Brace) {
@@ -142,7 +178,7 @@ impl Json {
         }
        
         let mut object = Object::new();
-        object.id = format!("object_{}", self.id);
+        object.name = format!("Object{}", self.id);
         self.id += 1;
 
         loop {
@@ -152,19 +188,11 @@ impl Json {
                 break;
             }
             content.parse::<Token![,]>()?;
-        }
-        
-        let mut i = 0;
-        fields = object.pairs.iter().map(|pair| {
-            i += 1;
-            let t = format!("T{}", i);
-            types.push(t.clone());            
-            // output
-            format!("pub {}: {}", pair.key, t)
-          }).collect();
+            if content.is_empty() {
+                break;
+            }
+        }       
 
-        let define = format!("pub struct {}<{}> {{ {} }}", object.id, types.join(","), fields.join(", "));
-        println!("XXXXXXXXXXXXXX {}", define);
         
         let v = self.append_object(object);
         return Ok(v);
@@ -190,6 +218,9 @@ impl Json {
                 break;                
             }
             content.parse::<Token![,]>()?;
+            if content.is_empty() {
+                break;
+            }
         }
         
         let value = self.append_array(array);
@@ -205,6 +236,35 @@ impl Json {
             return self.parse_array(input);
         }     
         return self.parse_expression(input);
+    }
+
+    pub fn get_pototypes(&self) -> String {
+        let mut defines = Vec::new();
+        defines.push("".to_owned());
+
+        for obj in &self.objects {
+            let mut i = 0;
+            let mut types = Vec::new();
+            let mut fields = Vec::new();
+            for pair in &obj.pairs {         
+                let t = format!("T{}", {i += 1; i});
+                let f = format!("{}:{}", pair.key.to_string(), t);
+                types.push(t);
+                fields.push(f);
+            }
+            let define = format!("struct {}<{}> {{ {} }}", obj.name, types.join(","), fields.join(","));
+            defines.push(define);
+        } 
+        
+        let attributes = "\n#[derive(Clone, Debug)]\n";
+        
+        return  defines.join(attributes);
+    }
+
+    pub fn get_code(&self) -> String {
+        let name = "".to_owned();
+        let code =  code_gen(self, &self.value, &name);
+        return code;
     }
 }
 

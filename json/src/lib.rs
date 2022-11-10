@@ -1,14 +1,12 @@
 extern crate proc_macro;
 use std::str::FromStr;
-
-use proc_macro::{TokenStream, TokenTree, Group, Delimiter};
-use quote::{quote, ToTokens};
-use syn::{Expr, ExprStruct, Pat, token::Struct};
+use proc_macro::TokenStream;
 
 mod json;
 use json::*;
 use syn::parse_macro_input;
 
+/*/
 fn check(expr: &Expr) {
     //println!("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");    
     match expr {
@@ -55,6 +53,7 @@ fn check(expr: &Expr) {
     println!("=================================");    
     println!("{:#?}", expr);
 }
+*/
 
 /*
 fn wrap_struct_name( struct_name: &str, input: TokenStream ) -> TokenStream {
@@ -95,16 +94,15 @@ fn traverse(input: TokenStream)  -> TokenStream {
 #[proc_macro]
 pub fn json(input: TokenStream) -> TokenStream {
 
-    let root = parse_macro_input!(input as Json);    
-    
-    let output = quote! {{
-        #[derive(Debug)]
-        pub struct object_0<T1,T2,T3> { pub a: T1, pub b: T2, pub name: T3 };
-        // output
-        object_0 {a: 100, b: 200, name: "swei" }
-    }};
+    let root = parse_macro_input!(input as Json); 
+    let prototypes = root.get_pototypes();
+    let code = root.get_code();
+    println!("XXXXXXXX\n{}", prototypes);
+    println!("XXXXXXXX\n{}", code);  
 
-    return TokenStream::from(output);
+    let block = format!("{{ {}\n{} }}", prototypes, code);
+
+    return TokenStream::from_str(block.as_str()).unwrap();    
 }
 
 #[cfg(test)]
