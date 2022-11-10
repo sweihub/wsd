@@ -58,7 +58,7 @@ impl Object {
 }
 
 fn code_gen(json: &Json, value: &Value, object_type: &String) -> String {
-    let code;
+    let mut code;
     let none = "".to_owned();
     match value.t {
         ValueType::OBJECT => {
@@ -89,6 +89,9 @@ fn code_gen(json: &Json, value: &Value, object_type: &String) -> String {
         ValueType::EXPRESSION => { 
             let expr = json.get_expression(value);
             code = expr.to_token_stream().to_string();
+            if code.eq("null") {
+                code = "Option::<String>::None".to_owned();
+            }
         },
         ValueType::NULL => { code = "None".to_owned(); }
     }
@@ -144,17 +147,14 @@ impl Json {
     
     // terminal
     fn parse_expression(&mut self, input: ParseStream) -> Result<Value> 
-    { 
-        println!("XXXXXXXX parse expression!");        
+    {   
         let expr: Expr = input.parse::<Expr>()?;
         let value = self.append_expression(expr);
         return Ok(value);
     }
     
     fn parse_pair(&mut self, input: ParseStream) -> Result<Pair> 
-    {  
-        println!("XXXXXXXX parse pair!");
-
+    { 
         // key
         let key: Ident = input.parse()?;
         // :
@@ -255,16 +255,18 @@ impl Json {
             let define = format!("struct {}<{}> {{ {} }}", obj.name, types.join(","), fields.join(","));
             defines.push(define);
         } 
-        
-        let attributes = "\n#[derive(Clone, Debug)]\n";
-        
-        return  defines.join(attributes);
+               
+        let attributes = "\n#[derive(Serialize, Deserialize, Debug, Clone)]\n";
+
+        return defines.join(attributes);    
     }
 
     pub fn get_code(&self) -> String {
         let name = "".to_owned();
         let code =  code_gen(self, &self.value, &name);
-        return code;
+         // let's build our world on serde
+        let import = "use serde::{Serialize, Deserialize};\n".to_owned();
+        return import + &code;
     }
 }
 
@@ -273,8 +275,7 @@ impl Parse for Json {
         let mut json = Json::new();
 
         // value := object | array
-        if input.peek2(syn::token::Colon) {            
-            println!("XXXXXXXX parse as object");
+        if input.peek2(syn::token::Colon) {  
             json.value =  json.parse_object(input)?;            
         }
         else {        

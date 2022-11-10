@@ -2,34 +2,53 @@
 
 This crate provides real native JSON syntax for Rust, you can declare the JSON object natively like JavaScript dose.
 
+## Usage
+Add dependencies to your Cargo.toml, `serde_json` is only needed if you want to stringify the JSON object.
+```toml
+[dependencies]
+native-json = "1.0"
+serde_json = "1.0.87"
+```
+
 ## Example
 ```rust
 use native_json::json;
+use std::collections::HashMap;
 
-fn test() {
-    let mut object = json!{
-        id: 2022,
-        name: "Native JSON for Rust",
-        array: [0,1,2,3,4,5,6,7,8,9],
-        color: { red: 100, green: 110, blue: 120 },
-        rect: { x: 10, y: 10, width: 100, height: 80},
+fn main()
+{
+    let var = 123;
+    let map = HashMap::from([ ("a", 1), ("b", 2), ("c", 3) ]);
+
+    let mut t = json!{
+        name: "native json",
+        style: {
+            color: "red",
+            size: 12,
+            bold: true
+        },
+        class: null,
+        array: [5,4,3,2,1],
+        vector: vec![1,2,3,4,5],
+        hashmap: map,
         students: [
-            { name: "Tom",  id: 202201 },
-            { name: "John", id: 202202 },
-            { name: "Jack", id: 202203 }
-        ]
-    }; 
+            {name: "John", age: 18},
+            {name: "Jack", age: 21},
+        ],
+        rect: {x: 10, y: 10, width: 100, height: 50},
+        sum: var + 10
+    };
 
-    // Native access to JSON member
-    let color = &object.color;
-    println("color, red: {}, green: {}, blue: {}}", color.red, color.green, color.blue);
+    // Native access
+    t.rect.x += 10;
+    t.rect.y += 20;
 
-    for i in &object.array {
-        // do something
-    }
+    // Debug
+    println!("{:#?}", t);
 
-    object.rect.x += 10;
-    object.rect.y += 20;
+    // Stringify
+    let text = serde_json::to_string_pretty(&t).unwrap();
+    println!("{}", text);
+
 }
-
 ```
