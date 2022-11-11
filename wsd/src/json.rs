@@ -98,9 +98,9 @@ pub trait JSON<'t>: Serialize  + Deserialize<'t> {
     }
 
     /// Parse from a JSON string
-    fn parse(&mut self, text: &'t String) -> Result<bool, Error> {
+    fn parse(&mut self, text: &'t String) -> Result<&mut Self, Error> {
         *self = serde_json::from_str(text.as_str())?;
-        return Ok(true);
+        return Ok(self);
     }
 
     /// Return a concise JSON string
