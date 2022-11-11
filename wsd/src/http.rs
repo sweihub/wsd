@@ -31,7 +31,7 @@ pub struct Request {
     inner: Option<Client>,
     headers: HashMap<String, String>,
     error: String,
-    timeout: i32,
+    timeout: f32,
     gzip: bool,
 }
 
@@ -70,7 +70,7 @@ impl Request {
             inner: None,
             headers: HashMap::new(),
             error: "".into(),
-            timeout: 10,
+            timeout: 10.0,
             gzip: false,
         };
     }
@@ -82,7 +82,7 @@ impl Request {
     }
 
     /// Set timeout as seconds
-    pub fn timeout(&mut self, seconds: i32) -> &mut Self {
+    pub fn timeout(&mut self, seconds: f32) -> &mut Self {
         self.timeout = seconds;
         return self;
     }
@@ -104,11 +104,12 @@ impl Request {
 
     /// Send the request
     pub fn send<DATA: Into<Body>, F: FnMut(Data)>(&mut self, data: DATA, mut f: F) -> i32 {
+        let duration = Duration::from_millis((self.timeout * 1000.0) as u64);
         // build client once
         if self.inner.is_none() {
             let c = Client::builder()
                 .gzip(self.gzip)
-                .timeout(Duration::from_secs(self.timeout as u64))
+                .timeout(duration)
                 .build();
             match c {
                 Ok(client) => {

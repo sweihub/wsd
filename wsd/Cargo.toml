@@ -1,6 +1,6 @@
 [package]
 name = "wsd"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 description = "Delivers what simply defined."
 license = "MIT"
@@ -13,5 +13,5 @@ documentation = "https://docs.rs/wsd"
 reqwest = { version = "0.11", features = ["blocking", "json", "gzip"] }
 serde = "1.0.147"
 serde_json = "1.0.87"
-native-json = "1.0.1"
+native-json = "1.0.2"
 

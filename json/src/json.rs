@@ -57,7 +57,7 @@ impl Object {
     }
 }
 
-fn code_gen(json: &Json, value: &Value, object_type: &String) -> String {
+fn code_gen(json: &Json, value: &Value, object_type: &String) -> String {    
     let mut code;
     let none = "".to_owned();
     match value.t {
@@ -88,8 +88,8 @@ fn code_gen(json: &Json, value: &Value, object_type: &String) -> String {
         },
         ValueType::EXPRESSION => { 
             let expr = json.get_expression(value);
-            code = expr.to_token_stream().to_string();
-            if code.eq("null") {
+            code = expr.to_token_stream().to_string();            
+            if code.eq("null") || code.eq("None") {                
                 code = "Option::<String>::None".to_owned();
             }
         },

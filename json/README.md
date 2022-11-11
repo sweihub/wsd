@@ -1,13 +1,16 @@
 # Native JSON for Rust
 
-This crate provides real native JSON syntax for Rust, you can declare the JSON object natively like JavaScript dose.
+This crate provides native JSON syntax for Rust, you can declare the JSON object natively like JavaScript dose.
+
+Note: This crate is just a crude proc-maco (compiler plugin) for Rust, for more features, please refer to [wsd::json](https://crates.io/crates/wsd)
 
 ## Usage
 Add dependencies to your Cargo.toml, `serde_json` is only needed if you want to stringify the JSON object.
 ```toml
 [dependencies]
 native-json = "1.0"
-serde_json = "1.0.87"
+serde = "1.0"
+serde_json = "1.0"
 ```
 
 ## Example
@@ -17,38 +20,32 @@ use std::collections::HashMap;
 
 fn main()
 {
-    let var = 123;
-    let map = HashMap::from([ ("a", 1), ("b", 2), ("c", 3) ]);
-
-    let mut t = json!{
+    let mut json = json!{
         name: "native json",
         style: {
             color: "red",
             size: 12,
-            bold: true
+            bold: true,
+            range: null
         },
-        class: null,
         array: [5,4,3,2,1],
         vector: vec![1,2,3,4,5],
-        hashmap: map,
+        hashmap: HashMap::from([ ("a", 1), ("b", 2), ("c", 3) ]);,
         students: [
             {name: "John", age: 18},
             {name: "Jack", age: 21},
         ],
-        rect: {x: 10, y: 10, width: 100, height: 50},
-        sum: var + 10
     };
 
     // Native access
-    t.rect.x += 10;
-    t.rect.y += 20;
+    json.style.size += 1;
+    json.students[0].age += 2;
 
     // Debug
     println!("{:#?}", t);
 
     // Stringify
-    let text = serde_json::to_string_pretty(&t).unwrap();
+    let text = serde_json::to_string_pretty(&json).unwrap();
     println!("{}", text);
-
 }
 ```
