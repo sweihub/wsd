@@ -71,9 +71,7 @@ use syn::parse_macro_input;
 ///```
 #[proc_macro]
 pub fn json(input: TokenStream) -> TokenStream {
-    let root = parse_macro_input!(input as Json); 
-    let prototypes = root.get_pototypes();
-    let code = root.get_code();
-    let block = format!("{{ {}\n{} }}", prototypes, code);
+    let parser = parse_macro_input!(input as Json); 
+    let block = parser.get_block();
     return TokenStream::from_str(block.as_str()).unwrap();    
 }
