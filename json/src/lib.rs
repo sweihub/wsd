@@ -73,5 +73,6 @@ use syn::parse_macro_input;
 pub fn json(input: TokenStream) -> TokenStream {
     let parser = parse_macro_input!(input as Json); 
     let block = parser.get_block();
+    println!("XXXXXXXX\n{}", block);
     return TokenStream::from_str(block.as_str()).unwrap();    
 }

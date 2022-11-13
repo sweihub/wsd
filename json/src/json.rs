@@ -1,4 +1,3 @@
-use quote::ToTokens;
 use syn::{
     parse::{Parse, ParseStream},
     *,
@@ -12,6 +11,9 @@ use syn::{
 // array  = [value, ...]
 // value =  object | array | expression
 // expression = string | number | identifier
+
+const IMPORTS: &str = "use serde::{Serialize, Deserialize};";
+const ATTRIBUTES: &str = "\n#[derive(Serialize, Deserialize, Debug, Clone)]\n";
 
 #[derive(PartialEq)]
 pub enum ValueType {
@@ -41,7 +43,7 @@ pub struct Json {
     pub id: i32,
     objects: Vec<Object>,
     arrays: Vec<Array>,
-    expressions: Vec<Expr>,
+    expressions: Vec<String>
 }
 
 pub struct Value {
@@ -62,96 +64,6 @@ impl Object {
             pairs: Vec::new(),
         }
     }
-}
-
-fn declare_gen(json: &Json, value: &Value) -> (String, String) {
-    let name;
-    let mut code = "".to_owned();
-    match value.t {
-        ValueType::NULL => todo!(),
-        ValueType::DECLARE | ValueType::OBJECT => {
-            let object = json.get_object(value);
-            name = object.name.clone();
-            let mut fields = Vec::new();
-            for pair in &object.pairs {
-                let (n, v) = declare_gen(json, &pair.value);
-                code += &v;
-                // collapse to "key: type"
-                let f = format!("{}:{}", pair.key.to_string(), n);
-                fields.push(f);
-            }
-            let c = format!("struct {} {{ {} }}\n", name, fields.join(","));
-            code += &c;
-        }
-        ValueType::ARRAY => {
-            // array: [type]
-            let array = json.get_array(value);
-            let (n, c) = declare_gen(json, &array.items[0]);
-            code += &c;
-            name = format!("Vec<{}>", n);
-        }
-        ValueType::EXPRESSION => {
-            // expression is type
-            let v = json.get_expression(value);
-            name = v.to_token_stream().to_string();
-        }
-    }
-
-    return (name, code);
-}
-
-fn code_gen(json: &Json, value: &Value, object_type: &String) -> String {
-    let mut code;
-    let none = "".to_owned();
-    match value.t {
-        ValueType::OBJECT => {
-            let obj = json.get_object(value);
-            let mut fields = Vec::new();
-            for pair in &obj.pairs {
-                let v = code_gen(json, &pair.value, object_type);
-                let f = format!("{}:{}", pair.key.to_string(), v);
-                fields.push(f);
-            }
-            let name = if object_type.is_empty() {
-                &obj.name
-            } else {
-                object_type
-            };
-            code = format!("{} {{ {} }}", name, fields.join(","));
-        }
-        ValueType::ARRAY => {
-            let array = json.get_array(value);
-            let mut item_type = &none;
-            // use the first item type
-            if array.items.len() > 0 && matches!(array.items[0].t, ValueType::OBJECT) {
-                let obj = json.get_object(&array.items[0]);
-                item_type = &obj.name;
-            }
-            let items: Vec<_> = array
-                .items
-                .iter()
-                .map(|x| {
-                    let c = code_gen(json, x, &item_type);
-                    c
-                })
-                .collect();
-            code = format!("[{}]", items.join(","));
-        }
-        ValueType::EXPRESSION => {
-            let expr = json.get_expression(value);
-            code = expr.to_token_stream().to_string();
-            if code.eq("null") || code.eq("None") {
-                code = "Option::<String>::None".to_owned();
-            }
-        }
-        ValueType::DECLARE => {
-            code = "TODO: declare".to_owned();
-        }
-        ValueType::NULL => {
-            code = "None".to_owned();
-        }
-    }
-    return code;
 }
 
 impl Json {
@@ -180,7 +92,7 @@ impl Json {
         return &self.arrays[v.i];
     }
 
-    pub fn get_expression(&self, v: &Value) -> &Expr {
+    pub fn get_expression(&self, v: &Value) -> &String {
         return &self.expressions[v.i];
     }
 
@@ -198,7 +110,7 @@ impl Json {
         return Value { t, i };
     }
 
-    fn append_expression(&mut self, v: Expr) -> Value {
+    fn append_expression(&mut self, v: String) -> Value {
         self.expressions.push(v);
         let i = self.expressions.len() - 1;
         let t = ValueType::EXPRESSION;
@@ -208,9 +120,52 @@ impl Json {
     // terminal
     fn parse_expression(&mut self, input: ParseStream) -> Result<Value> {
         println!("XXXXXXXX parse expression");
+        let mut span = input.span();
 
-        let expr: Expr = input.parse::<Expr>()?;
-        let value = self.append_expression(expr);
+        // expression with generic is allowed
+        let output = input.step(|cursor| {
+            let mut rest = *cursor;
+            let mut nested = 0;
+            let mut s = "".to_owned();
+            while let Some((tt, next)) = rest.token_tree() {
+                span = tt.span();
+                let token = tt.to_string();
+                if token == "<" {
+                    nested += 1;
+                } else if token == ">" {
+                    nested -= 1;
+                }
+                s += &token;
+
+                // peek
+                let mut peek = "".to_owned();
+                if let Some((lookhead, _)) = next.token_tree() {
+                    peek = lookhead.to_string();
+                }
+
+                println!("XXXXXXXX TOKEN: {}, PEEK: {}", token, peek);
+
+                // terminal
+                if nested == 0 && (peek == "," || next.eof()) {
+                    return Ok((s, next));
+                }
+
+                rest = next;
+            }
+            return Err(cursor.error("expression was not terminated!"));
+        });
+
+        if output.is_err() {
+            return Err(Error::new(span, "expected expression"));
+        }
+
+        let s = output.unwrap_or("".to_owned());
+        println!("XXXXXXXX CUSTOM: {}", s);
+
+        //let expr: Expr = parse_quote!(#s);
+
+        //let expr: Expr = input.parse::<Expr>()?;
+        let value = self.append_expression(s);
         return Ok(value);
     }
 
@@ -339,34 +294,118 @@ impl Json {
             defines.push(define);
         }
 
-        let attributes = "\n#[derive(Serialize, Deserialize, Debug, Clone)]\n";
-
-        return defines.join(attributes);
+        return defines.join(ATTRIBUTES);
     }
 
     pub fn get_code(&self) -> String {
-        if self.value.t == ValueType::DECLARE {
-            return "struct json_declare { x: i32, y: i32}".to_owned();
-        } else {
-            let name = "".to_owned();
-            let code = code_gen(self, &self.value, &name);
-            // let's build our world on serde
-            let import = "use serde::{Serialize, Deserialize};\n".to_owned();
-            return import + &code;
-        }
+        let name = "".to_owned();
+        let code = self.gen_code(&self.value, &name);
+        return code;
     }
 
     pub fn get_block(&self) -> String {
         if self.value.t == ValueType::DECLARE {
-            let (name, code) = declare_gen(self, &self.value);
+            let (name, code) = self.gen_declare(&self.value);
             println!("XXXXXXXX\nXXXXXXXX: name: {} \n{}", name, code);
             return code;
         } else {
             let prototypes = self.get_generics();
             let code = self.get_code();
-            let block = format!("{{ {}\n{} }}", prototypes, code);
+            let block = format!("{{ {}\n{}\n{} }}", IMPORTS, prototypes, code);
             return block;
         }
+    }
+
+    fn gen_code(&self, value: &Value, object_type: &String) -> String {
+        let mut code;
+        let none = "".to_owned();
+        match value.t {
+            ValueType::OBJECT => {
+                let obj = self.get_object(value);
+                let mut fields = Vec::new();
+                for pair in &obj.pairs {
+                    let v = self.gen_code(&pair.value, object_type);
+                    let f = format!("{}:{}", pair.key.to_string(), v);
+                    fields.push(f);
+                }
+                let name = if object_type.is_empty() {
+                    &obj.name
+                } else {
+                    object_type
+                };
+                code = format!("{} {{ {} }}", name, fields.join(","));
+            }
+            ValueType::ARRAY => {
+                let array = self.get_array(value);
+                let mut item_type = &none;
+                // use the first item type
+                if array.items.len() > 0 && matches!(array.items[0].t, ValueType::OBJECT) {
+                    let obj = self.get_object(&array.items[0]);
+                    item_type = &obj.name;
+                }
+                let items: Vec<_> = array
+                    .items
+                    .iter()
+                    .map(|x| {
+                        let c = self.gen_code(x, &item_type);
+                        c
+                    })
+                    .collect();
+                code = format!("[{}]", items.join(","));
+            }
+            ValueType::EXPRESSION => {
+                let expr = self.get_expression(value);
+                code = expr.clone();
+                if code.eq("null") || code.eq("None") {
+                    code = "Option::<String>::None".to_owned();
+                }
+            }
+            ValueType::DECLARE => {
+                code = "TODO: declare".to_owned();
+            }
+            ValueType::NULL => {
+                code = "Option::<String>::None".to_owned();
+            }
+        }
+        return code;
+    }
+
+    fn gen_declare(&self, value: &Value) -> (String, String) {
+        let mut class = "".to_owned();
+        let mut code = "".to_owned();
+        match value.t {
+            ValueType::DECLARE | ValueType::OBJECT => {
+                let object = self.get_object(value);
+                class = object.name.clone();
+                let mut fields = Vec::new();
+                for pair in &object.pairs {
+                    let (n, v) = self.gen_declare(&pair.value);
+                    code += &v;
+                    // collapse to "key: type"
+                    let f = format!("{}:{}", pair.key.to_string(), n);
+                    fields.push(f);
+                }
+                let c = format!("struct {} {{ {} }}\n", class, fields.join(","));
+                code += &c;
+            }
+            ValueType::ARRAY => {
+                // array: [type]
+                let array = self.get_array(value);
+                let (n, c) = self.gen_declare(&array.items[0]);
+                code += &c;
+                class = format!("Vec<{}>", n);
+            }
+            ValueType::EXPRESSION => {
+                // expression is type
+                let v = self.get_expression(value);
+                class = v.clone();
+            },
+            ValueType::NULL => {
+
+            }
+        }
+
+        return (class, code);
     }
 }
 
@@ -375,12 +414,13 @@ impl Parse for Json {
         let mut json = Json::new();
 
         if input.peek2(syn::token::Brace) {
-            // declare := identifier object
+            // declare := identifier { ... }
             json.value = json.parse_declare(input)?;
         } else if input.peek2(syn::token::Colon) {
             // value := object | array
             json.value = json.parse_object(input)?;
         } else {
+            // array := [value, ...]
             json.value = json.parse_array(input)?;
         }
 
