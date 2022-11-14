@@ -14,7 +14,6 @@ use syn::{
 // value =  object | array | expression
 // expression = string | number | identifier
 
-const IMPORTS: &str = "use serde::{Serialize, Deserialize};\nuse std::string::String;\nuse std::vec::Vec;\n";
 const ATTRIBUTES: &str = "#[derive(Serialize, Deserialize, Debug, Clone)]\n";
 
 #[derive(PartialEq, Clone, Copy)]
@@ -69,20 +68,24 @@ impl Object {
 }
 
 struct ClassDict {
-    map: HashMap<String, Value>
+    map: HashMap<String, Value>,
 }
 
 impl ClassDict {
-    fn new() -> Self { 
-        Self { map: HashMap::new() }
+    fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
     }
 
     fn set(&mut self, key: &String, value: &Value) {
-        let v = Value { t: value.t, i: value.i };
+        let v = Value {
+            t: value.t,
+            i: value.i,
+        };
         self.map.insert(key.clone(), v);
     }
 }
-
 
 impl Json {
     pub fn new() -> Self {
@@ -137,7 +140,6 @@ impl Json {
 
     // terminal
     fn parse_expression(&mut self, input: ParseStream) -> Result<Value> {
-        println!("XXXXXXXX parse expression");
         let mut span = input.span();
 
         // expression with generic is allowed
@@ -161,8 +163,6 @@ impl Json {
                     peek = lookhead.to_string();
                 }
 
-                println!("XXXXXXXX TOKEN: {}, PEEK: {}", token, peek);
-
                 // terminal
                 if nested == 0 && (peek == "," || next.eof()) {
                     return Ok((s, next));
@@ -178,18 +178,12 @@ impl Json {
         }
 
         let s = output.unwrap_or("".to_owned());
-        println!("XXXXXXXX CUSTOM: {}", s);
-
-        //let expr: Expr = parse_quote!(#s);
-
-        //let expr: Expr = input.parse::<Expr>()?;
         let value = self.append_expression(s);
+
         return Ok(value);
     }
 
     fn parse_pair(&mut self, input: ParseStream) -> Result<Pair> {
-        println!("XXXXXXXX parse pair");
-
         // key
         let key: Ident = input.parse()?;
         // :
@@ -201,8 +195,6 @@ impl Json {
     }
 
     fn parse_declare(&mut self, input: ParseStream) -> Result<Value> {
-        println!("XXXXXXXX parse declare");
-
         let name: Ident = input.parse()?;
         let mut value = self.parse_object(input)?;
 
@@ -216,7 +208,6 @@ impl Json {
 
     // object := { key: value, ...}
     fn parse_object(&mut self, input: ParseStream) -> Result<Value> {
-        println!("XXXXXXXX parse object");
         let inner;
         let mut content;
 
@@ -248,8 +239,6 @@ impl Json {
 
     // array := [value, ...]
     fn parse_array(&mut self, input: ParseStream) -> Result<Value> {
-        println!("XXXXXXXX parse array");
-
         let mut array = Array::new();
 
         let inner;
@@ -325,27 +314,24 @@ impl Json {
         if self.value.t == ValueType::DECLARE {
             let path = "".to_owned();
             let (name, declare) = self.gen_declare(path, &self.value);
-            println!("XXXXXXXX\nXXXXXXXX: name: {} \n{}", name, declare);
-
-            let mut code = IMPORTS.to_string();
-            code += &declare;     
-
+            let mut code = declare;
             // objects which require initializers
             let mut dict = ClassDict::new();
-            dict = self.get_init_object(dict, &name, &self.value);
+            dict = self.get_dict(dict, &name, &self.value);
             for (key, value) in &dict.map {
                 let init = self.gen_initializer(key, value);
-                let implement = format!("impl {} {{\n    pub fn new() -> Self {{\n        {}\n    }}\n}}\n",
-                key, init);
-                println!("DDDDDDDD\n{}", implement);
+                let implement = format!(
+                    "impl {} {{\n    pub fn new() -> Self {{\n        {}\n    }}\n}}\n",
+                    key, init
+                );
                 code += &implement;
             }
-            
+
             return code;
         } else {
             let prototypes = self.get_generics();
             let code = self.get_code();
-            let block = format!("{{ {}\n{}\n{} }}", IMPORTS, prototypes, code);
+            let block = format!("{{ {}\n{} }}", prototypes, code);
             return block;
         }
     }
@@ -405,7 +391,10 @@ impl Json {
     }
 
     fn get_instance(&self, class: &String) -> String {
-        const PRIMITIVES: [&str; 15] = ["u8", "u16", "u32", "u64", "u128", "i8", "i16", "i32", "i64", "i128", "f32", "f64","bool", "char","usize"];
+        const PRIMITIVES: [&str; 15] = [
+            "u8", "u16", "u32", "u64", "u128", "i8", "i16", "i32", "i64", "i128", "f32", "f64",
+            "bool", "char", "usize",
+        ];
 
         for c in &PRIMITIVES {
             if c == class {
@@ -416,44 +405,40 @@ impl Json {
         if class.find("Option<").is_some() {
             return "None".to_owned();
         }
-        
+
         let mut c = class.as_str();
 
         // generic
         if let Some(i) = class.find("<") {
-            c = &class[0 .. i];
-        }
-        else if class == "str" || class == "&str" {
-            c = "String";
+            c = &class[0..i];
+        } else if class == "str" || class == "&str" {
+            c = "std::string::String";
         }
 
         // type must have new() initializer
         return format!("{}::new()", c);
     }
 
-    fn get_init_object(&self, mut dict: ClassDict, path: &String, value: &Value) -> ClassDict {
+    // dict of (path, object)
+    fn get_dict(&self, mut dict: ClassDict, path: &String, value: &Value) -> ClassDict {
         match value.t {
             ValueType::DECLARE | ValueType::OBJECT => {
-                 // initializer for object
+                // initializer for object
                 dict.set(path, value);
                 let object = self.get_object(value);
                 for pair in &object.pairs {
                     let child = path.clone() + "_" + &pair.key.to_string();
-                    dict = self.get_init_object(dict, &child, &pair.value);
-                }                
-            },
+                    dict = self.get_dict(dict, &child, &pair.value);
+                }
+            }
             ValueType::ARRAY => {
                 // initializer for array item
                 let array = self.get_array(value);
                 let child = path.clone() + "_item";
-                dict = self.get_init_object(dict, &child, &array.items[0]);
-            },
-            ValueType::EXPRESSION => {
-
-            },          
-            ValueType::NULL => {
-
+                dict = self.get_dict(dict, &child, &array.items[0]);
             }
+            ValueType::EXPRESSION => {}
+            ValueType::NULL => {}
         }
 
         return dict;
@@ -475,15 +460,13 @@ impl Json {
                 code += format!("{} {{ {} }}", path, fields.join(",")).as_str();
             }
             ValueType::ARRAY => {
-                code = "Vec::new()".to_owned(); 
-            },
-            ValueType::EXPRESSION => {              
+                code = "std::vec::Vec::new()".to_owned();
+            }
+            ValueType::EXPRESSION => {
                 let expr = self.get_expression(value);
                 code = self.get_instance(&expr);
             }
-            ValueType::NULL => {
-
-            }
+            ValueType::NULL => {}
         }
 
         return code;
@@ -509,7 +492,7 @@ impl Json {
                     let f = format!("pub {}:{}", pair.key.to_string(), n);
                     fields.push(f);
                 }
-                let c = format!("pub struct {} {{ {} }}\n", class, fields.join(","));                
+                let c = format!("pub struct {} {{ {} }}\n", class, fields.join(","));
                 code += ATTRIBUTES;
                 code += &c;
             }
@@ -519,7 +502,7 @@ impl Json {
                 let child = path + "_item";
                 let (n, c) = self.gen_declare(child, &array.items[0]);
                 code += &c;
-                class = format!("Vec<{}>", n);
+                class = format!("std::vec::Vec<{}>", n);
             }
             ValueType::EXPRESSION => {
                 // expression is type

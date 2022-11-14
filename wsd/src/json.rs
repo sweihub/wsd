@@ -1,7 +1,7 @@
 //!
 //! # Native JSON for Rust
 //! [Native json][json] brings to you the native JSON syntax for Rust.
-//! ## Example
+//! ## Example of using JSON instance
 //!```rust
 //!use std::collections::HashMap;
 //!use wsd::json::*;
@@ -45,6 +45,43 @@
 //!```rust
 //!fn print_json<'t, T:wsd::json::JSON<'t>>(json: &T) {
 //!    println!("{}", json.to_string());
+//!}
+//!```
+//!## Example of using named JSON object
+//!```rust
+//!use native_json::json;
+//!use serde::{Deserialize, Serialize};
+//!use std::collections::HashMap;
+//!
+//!json!{ School {
+//!    name: String,
+//!    students: [
+//!        { name: String, age: u16 },
+//!        ...
+//!    ],
+//!    map: HashMap<String, String>,
+//!    nullable: Option<String>
+//!}}
+//!
+//!fn main()
+//!{
+//!    let mut school = School::new();
+//!
+//!    school.name = "MIT".to_string();
+//!    school.map.insert("Tom".to_owned(), "Profile".to_owned());
+//!
+//!    // using initializer
+//!    let mut john = School_students_item::new();
+//!    john.name = "John".to_owned();
+//!    john.age = 18;
+//!    school.students.push(john);
+//!
+//!    // using struct
+//!    let jack = School_students_item { name: "Jack".to_string(), age: 21 };
+//!    school.students.push(jack);
+//!
+//!    // show
+//!    println!("{:#?}", school);
 //!}
 //!```
 pub use native_json::*;

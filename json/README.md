@@ -49,3 +49,65 @@ fn main()
     println!("{}", text);
 }
 ```
+## Declare a named JSON struct
+
+With JSON decalre syntax, you can declare nested native JSON object in place. 
+
+### JSON Declare Syntax
+```rust
+json!{
+JSON_OBJECT_NAME { 
+    name : type, 
+    array: [type],
+    object: {
+        name: type,
+        ...
+    }
+    ...
+}}
+```
+
+The native-json will generate native Rust struct for you, each object is named by object hierarchy path, concatenate with underscore.
+
+  1. `JSON_OBJECT_NAME.object` was converted to `JSON_OBJECT_NAME_object`
+  2. `JSON_OBJECT_NAME.array's item` was converted to `JSON_OBJECT_NAME_array_item`
+
+## Example of using named JSON object
+
+```rust
+use native_json::json;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+json!{ School {
+    name: String,
+    students: [
+        { name: String, age: u16 },
+        ...
+    ],
+    map: HashMap<String, String>,
+    nullable: Option<String>
+}}
+
+fn main()
+{
+    let mut school = School::new();
+
+    school.name = "MIT".to_string();
+    school.map.insert("Tom".to_owned(), "Profile".to_owned());
+
+    // using initializer
+    let mut john = School_students_item::new();
+    john.name = "John".to_owned();
+    john.age = 18;
+    school.students.push(john);
+
+    // using struct
+    let jack = School_students_item { name: "Jack".to_string(), age: 21 };
+    school.students.push(jack);
+
+    // show
+    println!("{:#?}", school);
+
+}
+```
