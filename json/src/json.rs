@@ -404,7 +404,7 @@ impl Json {
         return code;
     }
 
-    fn get_initializer(&self, class: &String) -> String {
+    fn get_instance(&self, class: &String) -> String {
         const PRIMITIVES: [&str; 15] = ["u8", "u16", "u32", "u64", "u128", "i8", "i16", "i32", "i64", "i128", "f32", "f64","bool", "char","usize"];
 
         for c in &PRIMITIVES {
@@ -413,14 +413,21 @@ impl Json {
             }
         }
 
-        // generic
+        if class.find("Option<").is_some() {
+            return "None".to_owned();
+        }
+        
         let mut c = class.as_str();
+
+        // generic
         if let Some(i) = class.find("<") {
             c = &class[0 .. i];
         }
+        else if class == "str" || class == "&str" {
+            c = "String";
+        }
 
         // type must have new() initializer
-
         return format!("{}::new()", c);
     }
 
@@ -472,7 +479,7 @@ impl Json {
             },
             ValueType::EXPRESSION => {              
                 let expr = self.get_expression(value);
-                code = self.get_initializer(&expr);
+                code = self.get_instance(&expr);
             }
             ValueType::NULL => {
 
@@ -518,6 +525,9 @@ impl Json {
                 // expression is type
                 let v = self.get_expression(value);
                 class = v.clone();
+                if class == "str" || class == "&str" {
+                    class = "String".to_owned();
+                }
             }
             ValueType::NULL => {}
         }
