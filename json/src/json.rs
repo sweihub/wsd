@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use syn::{
     parse::{Parse, ParseStream},
     *,
@@ -12,10 +14,10 @@ use syn::{
 // value =  object | array | expression
 // expression = string | number | identifier
 
-const IMPORTS: &str = "use serde::{Serialize, Deserialize};";
-const ATTRIBUTES: &str = "\n#[derive(Serialize, Deserialize, Debug, Clone)]\n";
+const IMPORTS: &str = "use serde::{Serialize, Deserialize};\nuse std::string::String;\nuse std::vec::Vec;\n";
+const ATTRIBUTES: &str = "#[derive(Serialize, Deserialize, Debug, Clone)]\n";
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum ValueType {
     NULL,
     OBJECT,
@@ -43,7 +45,7 @@ pub struct Json {
     pub id: i32,
     objects: Vec<Object>,
     arrays: Vec<Array>,
-    expressions: Vec<String>
+    expressions: Vec<String>,
 }
 
 pub struct Value {
@@ -65,6 +67,22 @@ impl Object {
         }
     }
 }
+
+struct ClassDict {
+    map: HashMap<String, Value>
+}
+
+impl ClassDict {
+    fn new() -> Self { 
+        Self { map: HashMap::new() }
+    }
+
+    fn set(&mut self, key: &String, value: &Value) {
+        let v = Value { t: value.t, i: value.i };
+        self.map.insert(key.clone(), v);
+    }
+}
+
 
 impl Json {
     pub fn new() -> Self {
@@ -305,8 +323,24 @@ impl Json {
 
     pub fn get_block(&self) -> String {
         if self.value.t == ValueType::DECLARE {
-            let (name, code) = self.gen_declare(&self.value);
-            println!("XXXXXXXX\nXXXXXXXX: name: {} \n{}", name, code);
+            let path = "".to_owned();
+            let (name, declare) = self.gen_declare(path, &self.value);
+            println!("XXXXXXXX\nXXXXXXXX: name: {} \n{}", name, declare);
+
+            let mut code = IMPORTS.to_string();
+            code += &declare;     
+
+            // objects which require initializers
+            let mut dict = ClassDict::new();
+            dict = self.get_init_object(dict, &name, &self.value);
+            for (key, value) in &dict.map {
+                let init = self.gen_initializer(key, value);
+                let implement = format!("impl {} {{\n    pub fn new() -> Self {{\n        {}\n    }}\n}}\n",
+                key, init);
+                println!("DDDDDDDD\n{}", implement);
+                code += &implement;
+            }
+            
             return code;
         } else {
             let prototypes = self.get_generics();
@@ -370,28 +404,113 @@ impl Json {
         return code;
     }
 
-    fn gen_declare(&self, value: &Value) -> (String, String) {
+    fn get_initializer(&self, class: &String) -> String {
+        const PRIMITIVES: [&str; 15] = ["u8", "u16", "u32", "u64", "u128", "i8", "i16", "i32", "i64", "i128", "f32", "f64","bool", "char","usize"];
+
+        for c in &PRIMITIVES {
+            if c == class {
+                return format!("0 as {}", class);
+            }
+        }
+
+        // generic
+        let mut c = class.as_str();
+        if let Some(i) = class.find("<") {
+            c = &class[0 .. i];
+        }
+
+        // type must have new() initializer
+
+        return format!("{}::new()", c);
+    }
+
+    fn get_init_object(&self, mut dict: ClassDict, path: &String, value: &Value) -> ClassDict {
+        match value.t {
+            ValueType::DECLARE | ValueType::OBJECT => {
+                 // initializer for object
+                dict.set(path, value);
+                let object = self.get_object(value);
+                for pair in &object.pairs {
+                    let child = path.clone() + "_" + &pair.key.to_string();
+                    dict = self.get_init_object(dict, &child, &pair.value);
+                }                
+            },
+            ValueType::ARRAY => {
+                // initializer for array item
+                let array = self.get_array(value);
+                let child = path.clone() + "_item";
+                dict = self.get_init_object(dict, &child, &array.items[0]);
+            },
+            ValueType::EXPRESSION => {
+
+            },          
+            ValueType::NULL => {
+
+            }
+        }
+
+        return dict;
+    }
+
+    fn gen_initializer(&self, path: &String, value: &Value) -> String {
+        let mut code = "".to_owned();
+
+        match value.t {
+            ValueType::DECLARE | ValueType::OBJECT => {
+                let object = self.get_object(value);
+                let mut fields = Vec::new();
+                for pair in &object.pairs {
+                    let child = path.clone() + "_" + &pair.key.to_string();
+                    let c = self.gen_initializer(&child, &pair.value);
+                    let f = format!("{}: {}", pair.key.to_string(), c);
+                    fields.push(f);
+                }
+                code += format!("{} {{ {} }}", path, fields.join(",")).as_str();
+            }
+            ValueType::ARRAY => {
+                code = "Vec::new()".to_owned(); 
+            },
+            ValueType::EXPRESSION => {              
+                let expr = self.get_expression(value);
+                code = self.get_initializer(&expr);
+            }
+            ValueType::NULL => {
+
+            }
+        }
+
+        return code;
+    }
+
+    fn gen_declare(&self, mut path: String, value: &Value) -> (String, String) {
+        // class of current node
         let mut class = "".to_owned();
         let mut code = "".to_owned();
         match value.t {
             ValueType::DECLARE | ValueType::OBJECT => {
                 let object = self.get_object(value);
-                class = object.name.clone();
+                if path.is_empty() {
+                    path = object.name.clone();
+                }
+                class = path;
                 let mut fields = Vec::new();
                 for pair in &object.pairs {
-                    let (n, v) = self.gen_declare(&pair.value);
-                    code += &v;
+                    let child = class.clone() + "_" + &pair.key.to_string();
+                    let (n, c) = self.gen_declare(child, &pair.value);
+                    code += &c;
                     // collapse to "key: type"
-                    let f = format!("{}:{}", pair.key.to_string(), n);
+                    let f = format!("pub {}:{}", pair.key.to_string(), n);
                     fields.push(f);
                 }
-                let c = format!("struct {} {{ {} }}\n", class, fields.join(","));
+                let c = format!("pub struct {} {{ {} }}\n", class, fields.join(","));                
+                code += ATTRIBUTES;
                 code += &c;
             }
             ValueType::ARRAY => {
                 // array: [type]
                 let array = self.get_array(value);
-                let (n, c) = self.gen_declare(&array.items[0]);
+                let child = path + "_item";
+                let (n, c) = self.gen_declare(child, &array.items[0]);
                 code += &c;
                 class = format!("Vec<{}>", n);
             }
@@ -399,10 +518,8 @@ impl Json {
                 // expression is type
                 let v = self.get_expression(value);
                 class = v.clone();
-            },
-            ValueType::NULL => {
-
             }
+            ValueType::NULL => {}
         }
 
         return (class, code);

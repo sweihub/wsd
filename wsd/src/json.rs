@@ -51,6 +51,7 @@ pub use native_json::*;
 pub use serde_json::Error;
 
 use serde::{Serialize, Deserialize};
+use crate::fs::*;
 
 pub trait JSON<'t>: Serialize  + Deserialize<'t> {
     /// Stringify a native-json object
@@ -106,6 +107,15 @@ pub trait JSON<'t>: Serialize  + Deserialize<'t> {
     /// Return a concise JSON string
     fn to_string(&self) -> String {
         return self.stringify(0);
+    }
+
+    fn read<F: AsRef<str>>(json: &mut Self, file : F) -> Result<&mut Self, String> {
+        let mut f = File::new();
+        if f.open(file, O_READ) != 0 {
+            return Err(f.error().to_string());
+        }
+
+        return Ok(json);
     }
 }
 

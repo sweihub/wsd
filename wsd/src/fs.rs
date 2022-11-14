@@ -183,13 +183,24 @@ impl File {
     }
 
     /// Read data into buffer
-    pub fn read(&mut self, buf: &mut [u8]) -> int {
+    ///
+    /// * `buf` Buffer with length to read, 0 causes read to end
+    pub fn read(&mut self, buf: &mut Vec<u8>) -> int {
         if self.is_none() {
             return -1;
         }
 
         let mut i = 0;
         let mut fd = self.fd();
+
+        // read to end
+        if buf.len() == 0 {
+            if let Err(e) = fd.read_to_end(buf) {
+                self.error = e;
+                return -1;
+            }
+            return buf.len() as i32;
+        }
 
         let ret = fd.read(buf);
         match ret {
