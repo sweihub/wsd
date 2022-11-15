@@ -1,8 +1,8 @@
 # Native JSON for Rust
 
-This crate provides native JSON syntax for Rust, you can declare the JSON object natively like JavaScript dose.
+This crate provides native JSON syntax for Rust, it brings with a powerful way of parsing JSON syntax into native Rust structs. You can declare the JSON object natively as you do with JavaScript, JSON in Rust was made easy!
 
-Note: This crate is just a crude proc-maco (compiler plugin) for Rust, for more features, please refer to [wsd::json](https://crates.io/crates/wsd)
+> Note: This crate is just a crude proc-macro (compiler plugin) for Rust, for more features, please refer to [wsd::json](https://crates.io/crates/wsd)
 
 ## Usage
 Add dependencies to your Cargo.toml, `serde_json` is only needed if you want to stringify the JSON object.
@@ -17,6 +17,7 @@ serde_json = "1.0"
 ```rust
 use native_json::json;
 use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 
 fn main()
 {
@@ -62,12 +63,12 @@ JSON_OBJECT_NAME {
     object: {
         name: type,
         ...
-    }
+    },
     ...
 }}
 ```
 
-The native-json will generate native Rust struct for you, each object is named by object hierarchy path, concatenate with underscore.
+The native-json will generate native Rust structs for you, each object is named by object hierarchy path, concatenated with underscore.
 
   1. `JSON_OBJECT_NAME.object` was converted to `JSON_OBJECT_NAME_object`
   2. `JSON_OBJECT_NAME.array's item` was converted to `JSON_OBJECT_NAME_array_item`
@@ -108,6 +109,6 @@ fn main()
 
     // show
     println!("{:#?}", school);
-
 }
 ```
+
