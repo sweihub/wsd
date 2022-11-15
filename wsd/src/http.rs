@@ -181,7 +181,7 @@ impl Data {
 
 /// Most simple way to make a http get request, the gzip was enabled by default
 ///
-/// ```rust
+/// ```rust,no_run
 /// fn test() {
 ///     wsd::http::get("https://docs.rs/", |data| {
 ///         println!("status = {}, data = {}", data.status(), data.text());

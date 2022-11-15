@@ -2,8 +2,9 @@
 //! # Native JSON for Rust
 //! [Native json][json] brings to you the native JSON syntax for Rust.
 //! ## Example of using JSON instance
-//!```rust
+//!```no_run,rust
 //!use std::collections::HashMap;
+//!use serde::{Deserialize, Serialize};
 //!use wsd::json::*;
 //!
 //!fn main()
@@ -42,7 +43,7 @@
 //!}
 //!```
 //!## JSON as parameter
-//!```rust
+//!```rust,no_run
 //!fn print_json<'t, T:wsd::json::JSON<'t>>(json: &T) {
 //!    println!("{}", json.to_string());
 //!}
@@ -84,20 +85,139 @@
 //!    println!("{:#?}", school);
 //!}
 //!```
+use std::{fs::read_to_string, path::Path};
+
 pub use native_json::*;
 pub use serde_json::Error;
 
-use serde::{Serialize, Deserialize};
-use crate::fs::*;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-pub trait JSON<'t>: Serialize  + Deserialize<'t> {
+pub struct JSON;
+
+impl JSON {
     /// Stringify a native-json object
-    /// 
+    ///
     /// indent
-    /// 
+    ///
     /// - 0 : output concise JSON string
     /// - N : pretty output with N spaces indentation
-    fn stringify(&self, indent: usize) -> String {
+    pub fn stringify<T>(json: &T, indent: usize) -> String
+    where
+        T: ?Sized + Serialize,
+    {
+        let output;
+
+        // concise
+        if indent == 0 {
+            match serde_json::to_string(json) {
+                Ok(s) => {
+                    output = s;
+                }
+                Err(e) => {
+                    return format!("{{ error : \"{}\" }}", e.to_string());
+                }
+            }
+            return output;
+        }
+
+        // pretty
+        let spaces = vec![' ' as u8; indent];
+        let buf = Vec::new();
+        let formatter = serde_json::ser::PrettyFormatter::with_indent(&spaces);
+        let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
+
+        if let Err(e) = json.serialize(&mut ser) {
+            return format!("{{ error : \"{}\" }}", e.to_string());
+        }
+
+        match String::from_utf8(ser.into_inner()) {
+            Ok(s) => {
+                output = s;
+            }
+            Err(e) => {
+                return format!("{{ error : \"{}\" }}", e.to_string());
+            }
+        }
+
+        return output;
+    }
+
+    pub fn parse<'a, T, TEXT>(json: &mut T, s: &'a TEXT) -> Result<(), serde_json::Error>
+    where
+        T: Deserialize<'a>,
+        TEXT: AsRef<str>,
+    {
+        *json = serde_json::from_str(s.as_ref())?;
+        return Ok(());
+    }
+
+    /// Return a concise JSON string
+    pub fn to_string<T>(json: &T) -> String
+    where
+        T: ?Sized + Serialize,
+    {
+        match serde_json::to_string(&json) {
+            Ok(s) => return s,
+            Err(e) => {
+                return format!("{{ error: \"{}\" }}", e.to_string());
+            }
+        }
+    }
+
+    /// Deserialize JSON from file
+    pub fn read<T, F: AsRef<Path>>(json: &mut T, file: F) -> Result<&mut T, String>
+    where
+        T: DeserializeOwned,
+    {
+        let content;
+
+        match read_to_string(file) {
+            Ok(s) => {
+                content = s;
+            }
+            Err(e) => {
+                return Err(e.to_string());
+            }
+        }
+
+        if let Err(e) = JSON::parse(json, &content) {
+            return Err(e.to_string());
+        }
+
+        return Ok(json);
+    }
+
+    /// Serialize JSON into file
+    pub fn write<T, F: AsRef<Path>>(json: &T, file: F) -> std::io::Result<&T>
+    where
+        T: Serialize,
+    {
+        let content = JSON::stringify(json, 4);
+        std::fs::write(file, content)?;
+        return Ok(json);
+    }
+}
+
+pub trait JSON2<'a>: Serialize + Deserialize<'a> {
+    /// Parse JSON from string
+    fn parse<T: AsRef<str>>(&mut self, s: &'a T) -> Result<(), serde_json::Error> {
+        *self = serde_json::from_str(s.as_ref())?;
+        Ok(())
+    }
+
+    /// Return a concise JSON string
+    fn to_string(&self) -> String {
+       return self.stringify(0);
+    }
+
+     /// Stringify a native-json object
+    ///
+    /// indent
+    ///
+    /// - 0 : output concise JSON string
+    /// - N : pretty output with N spaces indentation
+    fn stringify(&self, indent: usize) -> String   
+    {
         let output;
 
         // concise
@@ -133,33 +253,7 @@ pub trait JSON<'t>: Serialize  + Deserialize<'t> {
         }
 
         return output;
-    }
-
-    /// Parse from a JSON string
-    fn parse(&mut self, text: &'t String) -> Result<&mut Self, Error> {
-        *self = serde_json::from_str(text.as_str())?;
-        return Ok(self);
-    }
-
-    /// Return a concise JSON string
-    fn to_string(&self) -> String {
-        return self.stringify(0);
-    }
-
-    fn read<F: AsRef<str>>(json: &mut Self, file : F) -> Result<&mut Self, String> {
-        let mut f = File::new();
-        if f.open(file, O_READ) != 0 {
-            return Err(f.error().to_string());
-        }
-
-        return Ok(json);
-    }
+    }   
 }
 
-// implement JSON for any compatible T
-impl<'t, T> JSON<'t> for T
-where
-    T: Serialize + Deserialize<'t>
-{
-
-}
+impl<'a, T> JSON2<'a> for T where T: Serialize + Deserialize<'a> {}

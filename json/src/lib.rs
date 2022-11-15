@@ -2,7 +2,7 @@
 //! # Native JSON for Rust
 //! `Native json` brings to you the native JSON syntax for Rust.
 //! ## Example of using JSON instance
-//!```rust
+//!```rust,no_run
 //!use std::collections::HashMap;
 //!use wsd::json::*;
 //!
@@ -48,7 +48,7 @@
 //!}
 //!```
 //!## Example of using named JSON object
-//!```rust
+//!```rust,no_run
 //!use native_json::json;
 //!use serde::{Deserialize, Serialize};
 //!use std::collections::HashMap;

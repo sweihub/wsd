@@ -182,25 +182,31 @@ impl File {
         return i;
     }
 
+    pub fn read_to_end(&mut self, buf: &mut Vec<u8>) -> i32 {
+        if self.is_none() {
+            return -1;
+        }
+
+        match self.fd().read_to_end(buf)  {
+            Ok(n) => {
+                return  n as i32;
+            },
+            Err(e) =>  {
+                self.error = e;
+            }
+        }
+
+        return -1;
+    }
+
     /// Read data into buffer
-    ///
-    /// * `buf` Buffer with length to read, 0 causes read to end
-    pub fn read(&mut self, buf: &mut Vec<u8>) -> int {
+    pub fn read(&mut self, buf: &mut [u8]) -> int {
         if self.is_none() {
             return -1;
         }
 
         let mut i = 0;
         let mut fd = self.fd();
-
-        // read to end
-        if buf.len() == 0 {
-            if let Err(e) = fd.read_to_end(buf) {
-                self.error = e;
-                return -1;
-            }
-            return buf.len() as i32;
-        }
 
         let ret = fd.read(buf);
         match ret {
@@ -274,24 +280,6 @@ impl File {
             return -1;
         }
         return 0;
-    }
-
-    /// Returns the file length
-    pub fn length(&mut self) -> i64 {
-        if self.is_none() {
-            return -1;
-        };
-
-        let cur = self.seek(0, SEEK_CUR);
-        let end = self.seek(0, SEEK_END);
-        if end >= cur && cur >= 0 {
-            // revert
-            if self.seek(cur, SEEK_SET) >= 0 {
-                return end;
-            }
-        }
-
-        return -1;
     }
 
     /// Returns the current position
