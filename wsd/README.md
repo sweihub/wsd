@@ -111,12 +111,6 @@ fn test() -> i32 {
         // success to read n bytes
     }
 
-    // get file length
-    let off = f.length();
-    if off > 0 {
-
-    }
-
     f.seek(256, SEEK_SET);
     f.write("more data");
 

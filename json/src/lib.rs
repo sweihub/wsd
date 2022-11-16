@@ -1,10 +1,23 @@
+//!# Native JSON for Rust
 //!
-//! # Native JSON for Rust
-//! `Native json` brings to you the native JSON syntax for Rust.
-//! ## Example of using JSON instance
-//!```rust,no_run
+//!This crate provides native JSON syntax for Rust, it brings with a powerful way of parsing JSON syntax into native Rust structs. You can declare the JSON object natively as you do with JavaScript, JSON in Rust was made easy!
+//!
+//!> Note: This crate is just a crude proc-macro (compiler plugin) for Rust, for more features, please refer to [wsd::json](https://crates.io/crates/wsd)
+//!
+//!## Usage
+//!Add dependencies to your Cargo.toml, `serde_json` is only needed if you want to stringify the JSON object.
+//!```toml
+//![dependencies]
+//!native-json = "1.1"
+//!serde = {version = "1.0", features = ["derive"] }
+//!serde_json = "1.0"
+//!```
+//!
+//!## Example of using native JSON object
+//!```rust
+//!use native_json::json;
 //!use std::collections::HashMap;
-//!use wsd::json::*;
+//!use serde::{Deserialize, Serialize};
 //!
 //!fn main()
 //!{
@@ -18,7 +31,7 @@
 //!        },
 //!        array: [5,4,3,2,1],
 //!        vector: vec![1,2,3,4,5],
-//!        hashmap: HashMap::from([("a", 1), ("b", 2), ("c", 3)]),
+//!        hashmap: HashMap::from([ ("a", 1), ("b", 2), ("c", 3) ]);,
 //!        students: [
 //!            {name: "John", age: 18},
 //!            {name: "Jack", age: 21},
@@ -29,26 +42,40 @@
 //!    json.style.size += 1;
 //!    json.students[0].age += 2;
 //!
+//!    // Debug
+//!    println!("{:#?}", t);
+//!
 //!    // Stringify
-//!    let text = json.stringify(4);
-//!
-//!    // Parse
-//!    json.hashmap.clear();
-//!    if let Err(e) = json.parse(&text) {
-//!        println!("error: {}", e);
-//!    }
-//!
-//!    println!("json.hashmap = {:#?}", json.hashmap);
+//!    let text = serde_json::to_string_pretty(&json).unwrap();
+//!    println!("{}", text);
 //!}
 //!```
-//!## JSON as parameter
+//!## Declare a named JSON struct
+//!
+//!With JSON decalre syntax, you can declare nested native JSON object in place. 
+//!
+//!### JSON Declare Syntax
 //!```rust
-//!fn print_json<'t, T:wsd::json::JSON<'t>>(json: &T) {
-//!    println!("{}", json.to_string());
-//!}
+//!json!{
+//!JSON_OBJECT_NAME { 
+//!    name : type, 
+//!    array: [type],
+//!    object: {
+//!        name: type,
+//!        ...
+//!    },
+//!    ...
+//!}}
 //!```
+//!
+//!The native-json will generate native Rust structs for you, each object is named by object hierarchy path, concatenated with underscore.
+//!
+//!  1. `JSON_OBJECT_NAME.object` was converted to `JSON_OBJECT_NAME_object`
+//!  2. `JSON_OBJECT_NAME.array's item` was converted to `JSON_OBJECT_NAME_array_item`
+//!
 //!## Example of using named JSON object
-//!```rust,no_run
+//!
+//!```rust
 //!use native_json::json;
 //!use serde::{Deserialize, Serialize};
 //!use std::collections::HashMap;
@@ -84,6 +111,7 @@
 //!    println!("{:#?}", school);
 //!}
 //!```
+//!
 extern crate proc_macro;
 mod json;
 
@@ -92,18 +120,7 @@ use std::str::FromStr;
 use proc_macro::TokenStream;
 use syn::parse_macro_input;
 
-/// Declare a native JSON object, native access to members.
-///```rust,no_run
-///use native_json::json;
-///fn test() {
-///    let object = json!{
-///        name: "native json",
-///        rect: { x: 10, y: 20, width: 100, height: 50},
-///        list: [0,1,2,3,4,5,6,7,8,9]
-///    };
-///    println!("name: {}", object.name);
-///}
-///```
+/// Declare or instantiate a native JSON object, please refere to module [json](index.html)
 #[proc_macro]
 pub fn json(input: TokenStream) -> TokenStream {
     let parser = parse_macro_input!(input as Json); 

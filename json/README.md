@@ -8,12 +8,12 @@ This crate provides native JSON syntax for Rust, it brings with a powerful way o
 Add dependencies to your Cargo.toml, `serde_json` is only needed if you want to stringify the JSON object.
 ```toml
 [dependencies]
-native-json = "1.0"
+native-json = "1.1"
 serde = {version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 ```
 
-## Example
+## Example of using native JSON object
 ```rust
 use native_json::json;
 use std::collections::HashMap;
