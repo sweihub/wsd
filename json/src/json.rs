@@ -391,9 +391,9 @@ impl Json {
     }
 
     fn get_instance(&self, class: &String) -> String {
-        const PRIMITIVES: [&str; 15] = [
+        const PRIMITIVES: [&str; 16] = [
             "u8", "u16", "u32", "u64", "u128", "i8", "i16", "i32", "i64", "i128", "f32", "f64",
-            "bool", "char", "usize",
+            "bool", "char", "isize", "usize"
         ];
 
         for c in &PRIMITIVES {
