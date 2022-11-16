@@ -85,120 +85,22 @@
 //!    println!("{:#?}", school);
 //!}
 //!```
-use std::{fs::read_to_string, path::Path};
-
 pub use native_json::*;
 pub use serde_json::Error;
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::{fs::read_to_string, path::Path};
+use serde::{Deserialize, Serialize};
 
-pub struct JSON;
-
-impl JSON {
-    /// Stringify a native-json object
-    ///
-    /// indent
-    ///
-    /// - 0 : output concise JSON string
-    /// - N : pretty output with N spaces indentation
-    pub fn stringify<T>(json: &T, indent: usize) -> String
-    where
-        T: ?Sized + Serialize,
-    {
-        let output;
-
-        // concise
-        if indent == 0 {
-            match serde_json::to_string(json) {
-                Ok(s) => {
-                    output = s;
-                }
-                Err(e) => {
-                    return format!("{{ error : \"{}\" }}", e.to_string());
-                }
-            }
-            return output;
-        }
-
-        // pretty
-        let spaces = vec![' ' as u8; indent];
-        let buf = Vec::new();
-        let formatter = serde_json::ser::PrettyFormatter::with_indent(&spaces);
-        let mut ser = serde_json::Serializer::with_formatter(buf, formatter);
-
-        if let Err(e) = json.serialize(&mut ser) {
-            return format!("{{ error : \"{}\" }}", e.to_string());
-        }
-
-        match String::from_utf8(ser.into_inner()) {
-            Ok(s) => {
-                output = s;
-            }
-            Err(e) => {
-                return format!("{{ error : \"{}\" }}", e.to_string());
-            }
-        }
-
-        return output;
-    }
-
-    pub fn parse<'a, T, TEXT>(json: &mut T, s: &'a TEXT) -> Result<(), serde_json::Error>
-    where
-        T: Deserialize<'a>,
-        TEXT: AsRef<str>,
-    {
-        *json = serde_json::from_str(s.as_ref())?;
-        return Ok(());
-    }
-
-    /// Return a concise JSON string
-    pub fn to_string<T>(json: &T) -> String
-    where
-        T: ?Sized + Serialize,
-    {
-        match serde_json::to_string(&json) {
-            Ok(s) => return s,
-            Err(e) => {
-                return format!("{{ error: \"{}\" }}", e.to_string());
-            }
-        }
-    }
-
-    /// Deserialize JSON from file
-    pub fn read<T, F: AsRef<Path>>(json: &mut T, file: F) -> Result<&mut T, String>
-    where
-        T: DeserializeOwned,
-    {
-        let content;
-
-        match read_to_string(file) {
-            Ok(s) => {
-                content = s;
-            }
-            Err(e) => {
-                return Err(e.to_string());
-            }
-        }
-
-        if let Err(e) = JSON::parse(json, &content) {
-            return Err(e.to_string());
-        }
-
-        return Ok(json);
-    }
-
-    /// Serialize JSON into file
-    pub fn write<T, F: AsRef<Path>>(json: &T, file: F) -> std::io::Result<&T>
-    where
-        T: Serialize,
-    {
-        let content = JSON::stringify(json, 4);
-        std::fs::write(file, content)?;
-        return Ok(json);
+// normalize error
+fn get<T, E: ToString>(v: Result<T, E>) -> Result<T, String> 
+{
+    match v {
+        Ok(a) => { Ok(a) },
+        Err(e) => { Err(e.to_string()) }
     }
 }
 
-pub trait JSON2<'a>: Serialize + Deserialize<'a> {
+pub trait JSON<'a>: Serialize + Deserialize<'a> {
     /// Parse JSON from string
     fn parse<T: AsRef<str>>(&mut self, s: &'a T) -> Result<(), serde_json::Error> {
         *self = serde_json::from_str(s.as_ref())?;
@@ -253,7 +155,28 @@ pub trait JSON2<'a>: Serialize + Deserialize<'a> {
         }
 
         return output;
-    }   
+    }
+    
+     /// Deserialize JSON from file
+     /// 
+     /// Due to the serde lifetime issue, the content should have same lifetime as the JSON
+     /// object itself, the content will be borrowed as mutable zoombie.
+     fn read<F: AsRef<Path>>(&mut self, file: F, content: &'a mut String) -> Result<(), String>     
+     {
+        *content = get(read_to_string(file))?;
+        let decoder = serde_json::from_str(content.as_str());
+        *self = get(decoder)?;
+ 
+         return Ok(());
+     }
+
+      /// Serialize JSON into file
+    fn write<F: AsRef<Path>>(&self, file: F) -> std::io::Result<()>
+    {
+        let content = self.stringify(4);
+        std::fs::write(file, content)?;
+        return Ok(());
+    }
 }
 
-impl<'a, T> JSON2<'a> for T where T: Serialize + Deserialize<'a> {}
+impl<'a, T> JSON<'a> for T where T: Serialize + Deserialize<'a> {}

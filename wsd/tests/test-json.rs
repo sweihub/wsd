@@ -1,9 +1,9 @@
 use serde::{Serialize, Deserialize};
-use std::{collections::HashMap, fs::read_to_string};
+use std::{collections::HashMap};
 use wsd::json::*;
 
 #[test]
-fn test_json() {
+fn json_instance() {
     let mut json = json! {
         name: "native json",
         students:  [
@@ -22,7 +22,7 @@ fn test_json() {
 }
 
 #[test]
-fn test_json_declar() {
+fn json_declare() {
     json! {
     School {
         name: String,
@@ -52,7 +52,7 @@ fn test_json_declar() {
 }
 
 #[test]
-fn test_json_serialize() {
+fn json_serialize() {
     let mut json = json!{
         name: "native json",
         point: { x: 10, y: 20},
@@ -71,7 +71,7 @@ fn test_json_serialize() {
 }
 
 #[test]
-fn test_json_read_write() -> Result<(), std::io::Error> {
+fn json_read_write() -> Result<(), std::io::Error> {
     let mut json = json!{
         name: "native json",
         point: { x: 10, y: 20},
@@ -81,17 +81,19 @@ fn test_json_read_write() -> Result<(), std::io::Error> {
     };
 
     let file = "json-rw.json";
-    assert!(JSON::write(&json, file).is_ok());
+    assert!(json.write(file).is_ok());
 
     json.name = "";
     json.vector.clear();
     json.hashmap.clear();
 
-    let s = read_to_string(file)?;
-    json = serde_json::from_str(s.as_str()).unwrap();
-    assert_eq!(json.name, "native json");
+    // read and parse from file
+    let mut zoombie = String::new();
+    assert!(json.read(file, &mut zoombie).is_ok());
+    assert!(json.vector[0] == 1);    
 
     // test methods
+    let s = std::fs::read_to_string(file)?;
     assert!(json.parse(&s).is_ok());
     let _s1 = json.to_string();
     let _s2 = json.stringify(4);  
